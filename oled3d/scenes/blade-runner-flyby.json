@@ -1,0 +1,1621 @@
+{
+ "version": 1,
+ "name": "blade-runner-flyby",
+ "duration": 21,
+ "settings": {
+  "focal": 50,
+  "near": 0.6,
+  "far": 240,
+  "fogDist": 190,
+  "winSpacingX": 3,
+  "winSpacingY": 3.5,
+  "rain": {
+   "count": 14,
+   "slant": 0.25,
+   "speed": 65
+  },
+  "fadeIn": 0.6,
+  "fadeOut": 1.5,
+  "lightDir": [
+   -0.6,
+   1,
+   -0.5
+  ]
+ },
+ "objects": [
+  {
+   "id": "f1",
+   "type": "box",
+   "name": "Billboard tower",
+   "group": "Shot 1",
+   "x0": 6,
+   "x1": 24,
+   "y0": 0,
+   "y1": 112,
+   "z0": 70,
+   "z1": 88,
+   "windows": 0.15,
+   "winStyle": "grid",
+   "edges": true,
+   "bright": false,
+   "seed": 139
+  },
+  {
+   "id": "geisha",
+   "type": "billboard",
+   "name": "Geisha screen",
+   "pos": [
+    15,
+    48,
+    69.9
+   ],
+   "yaw": 180,
+   "w": 17,
+   "h": 50,
+   "tex": {
+    "w": 26,
+    "h": 56,
+    "frames": [
+     {
+      "bits": "JEmSAJIkAAAB/EkCSEMmAZIBCABBIFgCKAQkATIAOAARAEQCCICAAQoCggBFQAADDAgAASb8QQEF/gsDhHEEARz/pwAJb4cCOHN+AeT/nwAB/18CSP83ASSPkwAB/k8CSP4lAST5kgAB/ksCyP0tAWT8kQAy/GEACPyBAQT8AQED/AECAPwBAAD8AQAA/AEAAPwBAAD8AQAA/AEAAPwBAAD8AQAA/AEAAPwBAAD8AQAA/AEAAPwBAAD8AQAA/AEAAPwBAAD8AQAA/AEAAPwBAAD8AQAA/AEAAPwBAAD8AQA=",
+      "dur": 4.3
+     },
+     {
+      "bits": "VVVVAQAAAAAAAAAAAHwAAAB8AAAAfAAAVX1VAQB8AADg/w8A4P8PAOD/DwDg/w8A9f9fAeCDDwDggw8A4IMPAOCDDwDggw8AVdVfAQCADwAAgA8AAIAPAACADwAAfAAAVX1VAQB8AAAAfAAAAHwAAAAAAAAAAAAAVVVVAQAAAAAAAAAAAAAAAAAAAAAAAAAAVVVVAQAAAADg/w8A4P8PAOD/DwDg/w8A9f9fAQCADwAAgA8AAIAPAACADwAAgA8AVdVfAQCADwAAgA8AAIAPAACADwDg/w8A9f9fAeD/DwA=",
+      "dur": 1.7
+     },
+     {
+      "bits": "AAIAAAACAAAAAgAAzP8fAMz/HwDg/z8A4P8/APD/fwDw/38C+P//Avv//wAb/IEAHPyBABz8gQH8//8B/P//Afz7/AH8+/wBPvjgAT784QE+/OED/v//A////wP///8D////Af///wH///8B/P//A/z//wP8//8B/P//Afz//wD8B/8A/Af/APsHfwDz//8A8P//A+D/vwPg/z8D0P+fAdD/jwGM/2cADP9jAOP/PwDz/38A+/9/ALz/7wKe/88Dj/+PA4f/DwOD/w8Cgf8PAID/DwCA/w8AgP8PAID/DwA=",
+      "dur": 15
+     }
+    ]
+   },
+   "scanline": true,
+   "glitch": true,
+   "border": false
+  },
+  {
+   "id": "f2",
+   "type": "box",
+   "name": "Window tower",
+   "group": "Shot 1",
+   "x0": 24,
+   "x1": 44,
+   "y0": 0,
+   "y1": 96,
+   "z0": 62,
+   "z1": 82,
+   "windows": 0.62,
+   "winStyle": "grid",
+   "edges": true,
+   "bright": false,
+   "seed": 71
+  },
+  {
+   "id": "f3",
+   "type": "box",
+   "name": "Window tower 2",
+   "group": "Shot 1",
+   "x0": 46,
+   "x1": 66,
+   "y0": 0,
+   "y1": 70,
+   "z0": 90,
+   "z1": 110,
+   "windows": 0.5,
+   "winStyle": "grid",
+   "edges": true,
+   "bright": false,
+   "seed": 238
+  },
+  {
+   "id": "f4",
+   "type": "box",
+   "name": "Left block",
+   "group": "Shot 1",
+   "x0": -34,
+   "x1": -12,
+   "y0": 0,
+   "y1": 46,
+   "z0": 74,
+   "z1": 96,
+   "windows": 0.3,
+   "winStyle": "grid",
+   "edges": true,
+   "bright": false,
+   "seed": 129
+  },
+  {
+   "id": "f5",
+   "type": "box",
+   "name": "Left low",
+   "group": "Shot 1",
+   "x0": -10,
+   "x1": 4,
+   "y0": 0,
+   "y1": 26,
+   "z0": 94,
+   "z1": 108,
+   "windows": 0.25,
+   "winStyle": "grid",
+   "edges": true,
+   "bright": false,
+   "seed": 171
+  },
+  {
+   "id": "f6",
+   "type": "box",
+   "name": "Left tall",
+   "group": "Shot 1",
+   "x0": -46,
+   "x1": -30,
+   "y0": 0,
+   "y1": 70,
+   "z0": 110,
+   "z1": 130,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": true,
+   "bright": false,
+   "seed": 73
+  },
+  {
+   "id": "f7",
+   "type": "billboard",
+   "name": "Round neon",
+   "group": "Shot 1",
+   "pos": [
+    -24,
+    66,
+    109.9
+   ],
+   "yaw": 180,
+   "w": 7,
+   "h": 7,
+   "tex": {
+    "w": 16,
+    "h": 16,
+    "frames": [
+     {
+      "bits": "AADwD/gfnDmOcYZhhmH+f/5/hmGGYY5xnDn4H/APAAA=",
+      "dur": 1
+     }
+    ]
+   },
+   "scanline": false,
+   "glitch": true,
+   "border": false
+  },
+  {
+   "id": "f8",
+   "type": "billboard",
+   "name": "Hotel sign",
+   "group": "Shot 1",
+   "pos": [
+    -3,
+    31,
+    93.9
+   ],
+   "yaw": 180,
+   "w": 4,
+   "h": 1.4,
+   "tex": {
+    "w": 24,
+    "h": 8,
+    "frames": [
+     {
+      "bits": "////AQCADcOwFUXRGYbhDcOwAQCA////",
+      "dur": 1
+     }
+    ]
+   },
+   "scanline": false,
+   "glitch": false,
+   "border": false
+  },
+  {
+   "id": "f9",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": -33.64354251418263,
+   "x1": -22.201999417040497,
+   "y0": 0,
+   "y1": 87.01783638447523,
+   "z0": 218.24187556980178,
+   "z1": 233.55394711438566,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 193
+  },
+  {
+   "id": "f10",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 15.065092202275991,
+   "x1": 26.436409714631736,
+   "y0": 0,
+   "y1": 100.09613268077374,
+   "z0": 319.00703007820994,
+   "z1": 335.6056845160201,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 51
+  },
+  {
+   "id": "f11",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 19.91041572764516,
+   "x1": 29.78123884368688,
+   "y0": 0,
+   "y1": 57.87668503820896,
+   "z0": 168.1926315301098,
+   "z1": 177.4265258545056,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 53
+  },
+  {
+   "id": "f12",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": -52.480220440775156,
+   "x1": -39.95522621134296,
+   "y0": 0,
+   "y1": 74.338667858392,
+   "z0": 183.48780180560425,
+   "z1": 197.1461016354151,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 125
+  },
+  {
+   "id": "f13",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 59.2884469544515,
+   "x1": 68.53661828394979,
+   "y0": 0,
+   "y1": 108.34630936384201,
+   "z0": 211.39698219951242,
+   "z1": 220.19816458178684,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 168
+  },
+  {
+   "id": "f14",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 25.771131617948413,
+   "x1": 42.26508596166968,
+   "y0": 0,
+   "y1": 41.89356587827206,
+   "z0": 203.2724575395696,
+   "z1": 221.22588266106322,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 25
+  },
+  {
+   "id": "f15",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": -1.5930828219279647,
+   "x1": 14.160522813443094,
+   "y0": 0,
+   "y1": 77.92006220668554,
+   "z0": 252.1211683494039,
+   "z1": 267.2793062515557,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 156
+  },
+  {
+   "id": "f16",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 62.37591966986656,
+   "x1": 79.62506657885388,
+   "y0": 0,
+   "y1": 119.45722073316574,
+   "z0": 188.00775311887264,
+   "z1": 196.88880583224818,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 93
+  },
+  {
+   "id": "f17",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 37.4181598238647,
+   "x1": 54.74865399952978,
+   "y0": 0,
+   "y1": 94.66856660321355,
+   "z0": 181.83639826718718,
+   "z1": 196.22001065360382,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 51
+  },
+  {
+   "id": "f18",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 42.297104271128774,
+   "x1": 57.83533706748858,
+   "y0": 0,
+   "y1": 96.68906096369028,
+   "z0": 296.7490850808099,
+   "z1": 305.84800060791895,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 198
+  },
+  {
+   "id": "f19",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 47.81975272577256,
+   "x1": 64.43737371312454,
+   "y0": 0,
+   "y1": 118.83312802761793,
+   "z0": 221.77276988048106,
+   "z1": 231.52193304803222,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 201
+  },
+  {
+   "id": "f20",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 62.28828490246087,
+   "x1": 77.85644773114473,
+   "y0": 0,
+   "y1": 88.0119794048369,
+   "z0": 266.660786177963,
+   "z1": 278.81140835303813,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 208
+  },
+  {
+   "id": "f21",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": -66.4368476998061,
+   "x1": -51.65237115044147,
+   "y0": 0,
+   "y1": 100.04817314445972,
+   "z0": 206.83497296180576,
+   "z1": 216.52734769228846,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 107
+  },
+  {
+   "id": "f22",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 22.444592234678566,
+   "x1": 32.08967693336308,
+   "y0": 0,
+   "y1": 95.72770623490214,
+   "z0": 221.05400876142085,
+   "z1": 234.7512609390542,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 11
+  },
+  {
+   "id": "f23",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 17.884227107279003,
+   "x1": 28.620220582932234,
+   "y0": 0,
+   "y1": 83.89354234561324,
+   "z0": 319.7522974270396,
+   "z1": 336.6349051608704,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 163
+  },
+  {
+   "id": "f24",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": -68.18630604073405,
+   "x1": -57.00665819272399,
+   "y0": 0,
+   "y1": 99.92630574852228,
+   "z0": 258.5762703628279,
+   "z1": 266.6670574406162,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 179
+  },
+  {
+   "id": "f25",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 48.23836129158735,
+   "x1": 63.15460852533579,
+   "y0": 0,
+   "y1": 82.36798346042633,
+   "z0": 296.6054594377056,
+   "z1": 305.0028327452019,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 218
+  },
+  {
+   "id": "f26",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": -9.287110096774995,
+   "x1": 7.032937770243734,
+   "y0": 0,
+   "y1": 109.39363893121481,
+   "z0": 279.54851128393784,
+   "z1": 297.12534180795774,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 60
+  },
+  {
+   "id": "f27",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": -65.6902007618919,
+   "x1": -52.91125710867345,
+   "y0": 0,
+   "y1": 109.75598525255919,
+   "z0": 233.34288374520838,
+   "z1": 248.74167178943753,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 107
+  },
+  {
+   "id": "f28",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": -22.117150146514177,
+   "x1": -6.548191025387496,
+   "y0": 0,
+   "y1": 117.22450761124492,
+   "z0": 179.47156167589128,
+   "z1": 188.42528015794232,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 98
+  },
+  {
+   "id": "f29",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 6.3274683291092515,
+   "x1": 20.814434077590704,
+   "y0": 0,
+   "y1": 48.74515738338232,
+   "z0": 236.52131146285683,
+   "z1": 246.2804642454721,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 40
+  },
+  {
+   "id": "f30",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": 53.8362105935812,
+   "x1": 63.83870571805164,
+   "y0": 0,
+   "y1": 44.47787104174495,
+   "z0": 171.05481239035726,
+   "z1": 184.3796667731367,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 15
+  },
+  {
+   "id": "f31",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": -59.601439661346376,
+   "x1": -51.1314927325584,
+   "y0": 0,
+   "y1": 112.27047750726342,
+   "z0": 280.08077081060037,
+   "z1": 291.72314143925905,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 37
+  },
+  {
+   "id": "f32",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": -11.02332886774093,
+   "x1": -0.8963323226198554,
+   "y0": 0,
+   "y1": 49.67647448182106,
+   "z0": 253.86493392754346,
+   "z1": 262.45759911322966,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 206
+  },
+  {
+   "id": "f33",
+   "type": "box",
+   "name": "Distant",
+   "group": "Shot 1 background",
+   "x0": -2.7593456488102674,
+   "x1": 10.752586081624031,
+   "y0": 0,
+   "y1": 94.42672420293093,
+   "z0": 226.52352674631402,
+   "z1": 238.16792665235698,
+   "windows": 0.35,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 25
+  },
+  {
+   "id": "spinnerA",
+   "type": "model",
+   "name": "Spinner (shot 1)",
+   "mesh": {
+    "verts": [
+     [
+      0,
+      0.2,
+      2.3
+     ],
+     [
+      -0.8,
+      0.5,
+      1.2
+     ],
+     [
+      0.8,
+      0.5,
+      1.2
+     ],
+     [
+      -0.8,
+      -0.2,
+      1
+     ],
+     [
+      0.8,
+      -0.2,
+      1
+     ],
+     [
+      -0.85,
+      0.7,
+      -1.9
+     ],
+     [
+      0.85,
+      0.7,
+      -1.9
+     ],
+     [
+      -0.85,
+      -0.2,
+      -1.9
+     ],
+     [
+      0.85,
+      -0.2,
+      -1.9
+     ],
+     [
+      -0.55,
+      1.15,
+      0.1
+     ],
+     [
+      0.55,
+      1.15,
+      0.1
+     ],
+     [
+      -0.5,
+      1.1,
+      -1
+     ],
+     [
+      0.5,
+      1.1,
+      -1
+     ]
+    ],
+    "faces": [
+     {
+      "v": [
+       0,
+       1,
+       2
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       0,
+       4,
+       3
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       0,
+       3,
+       1
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       0,
+       2,
+       4
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       1,
+       3,
+       7,
+       5
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       2,
+       6,
+       8,
+       4
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       5,
+       7,
+       8,
+       6
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       3,
+       4,
+       8,
+       7
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       1,
+       2,
+       10,
+       9
+      ],
+      "style": "dark"
+     },
+     {
+      "v": [
+       9,
+       10,
+       12,
+       11
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       1,
+       9,
+       11,
+       5
+      ],
+      "style": "dark"
+     },
+     {
+      "v": [
+       2,
+       6,
+       12,
+       10
+      ],
+      "style": "dark"
+     },
+     {
+      "v": [
+       11,
+       12,
+       6,
+       5
+      ],
+      "style": "shaded"
+     }
+    ]
+   },
+   "scale": 1.5,
+   "autoOrient": true,
+   "bob": 0.2,
+   "headlights": true,
+   "thrusters": true,
+   "powerDown": false,
+   "lights": [
+    {
+     "p": [
+      -0.35,
+      1.3,
+      -0.45
+     ],
+     "mode": "alt",
+     "rate": 6,
+     "phase": 0
+    },
+    {
+     "p": [
+      0.35,
+      1.3,
+      -0.45
+     ],
+     "mode": "alt",
+     "rate": 6,
+     "phase": 1
+    }
+   ],
+   "keys": [
+    {
+     "t": 0,
+     "p": [
+      -6,
+      66,
+      300
+     ],
+     "ease": "linear"
+    },
+    {
+     "t": 3,
+     "p": [
+      -4,
+      56,
+      200
+     ],
+     "ease": "linear"
+    },
+    {
+     "t": 5.5,
+     "p": [
+      1,
+      46,
+      115
+     ],
+     "ease": "linear"
+    },
+    {
+     "t": 6.8,
+     "p": [
+      8,
+      39,
+      52
+     ],
+     "ease": "linear"
+    },
+    {
+     "t": 7.5,
+     "p": [
+      14,
+      35,
+      26
+     ],
+     "ease": "linear"
+    },
+    {
+     "t": 8.2,
+     "p": [
+      40,
+      30,
+      8
+     ],
+     "ease": "linear"
+    }
+   ]
+  },
+  {
+   "id": "f34",
+   "type": "box",
+   "name": "HQ shaft",
+   "group": "Shot 2 police HQ",
+   "x0": -20,
+   "x1": 20,
+   "y0": 0,
+   "y1": 70,
+   "z0": 300,
+   "z1": 345,
+   "windows": 0.78,
+   "winStyle": "grid",
+   "edges": true,
+   "bright": true,
+   "seed": 124
+  },
+  {
+   "id": "f35",
+   "type": "box",
+   "name": "HQ overhang",
+   "group": "Shot 2 police HQ",
+   "x0": -32,
+   "x1": 26,
+   "y0": 70,
+   "y1": 86,
+   "z0": 286,
+   "z1": 350,
+   "windows": 0.8,
+   "winStyle": "grid",
+   "edges": true,
+   "bright": true,
+   "seed": 69
+  },
+  {
+   "id": "f36",
+   "type": "box",
+   "name": "HQ crown",
+   "group": "Shot 2 police HQ",
+   "x0": -18,
+   "x1": 16,
+   "y0": 86,
+   "y1": 92,
+   "z0": 296,
+   "z1": 340,
+   "windows": 0.3,
+   "winStyle": "bands",
+   "edges": true,
+   "bright": true,
+   "seed": 139
+  },
+  {
+   "id": "f37",
+   "type": "box",
+   "name": "HQ pad",
+   "group": "Shot 2 police HQ",
+   "x0": -11,
+   "x1": 11,
+   "y0": 92,
+   "y1": 96,
+   "z0": 306,
+   "z1": 330,
+   "windows": 0,
+   "winStyle": "none",
+   "edges": true,
+   "bright": true,
+   "seed": 13
+  },
+  {
+   "id": "f38",
+   "type": "box",
+   "name": "HQ mast",
+   "group": "Shot 2 police HQ",
+   "x0": 9,
+   "x1": 9.6,
+   "y0": 96,
+   "y1": 110,
+   "z0": 327,
+   "z1": 327.6,
+   "windows": 0,
+   "winStyle": "none",
+   "edges": true,
+   "bright": true,
+   "seed": 247
+  },
+  {
+   "id": "f39",
+   "type": "box",
+   "name": "HQ wing",
+   "group": "Shot 2 police HQ",
+   "x0": 22,
+   "x1": 40,
+   "y0": 0,
+   "y1": 62,
+   "z0": 305,
+   "z1": 340,
+   "windows": 0.7,
+   "winStyle": "grid",
+   "edges": true,
+   "bright": true,
+   "seed": 184
+  },
+  {
+   "id": "f40",
+   "type": "box",
+   "name": "Neighbour",
+   "group": "Shot 2 city",
+   "x0": -71.52417270746082,
+   "x1": -63.52417270746082,
+   "y0": 0,
+   "y1": 98.53097779559903,
+   "z0": 365.0827325717546,
+   "z1": 396.56349478522316,
+   "windows": 0.45,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 173
+  },
+  {
+   "id": "f41",
+   "type": "box",
+   "name": "Neighbour",
+   "group": "Shot 2 city",
+   "x0": -61.9290359262377,
+   "x1": -53.9290359262377,
+   "y0": 0,
+   "y1": 69.7390809492208,
+   "z0": 357.06725656753406,
+   "z1": 395.0142278778367,
+   "windows": 0.45,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 170
+  },
+  {
+   "id": "f42",
+   "type": "box",
+   "name": "Neighbour",
+   "group": "Shot 2 city",
+   "x0": -50.07090037688613,
+   "x1": -42.07090037688613,
+   "y0": 0,
+   "y1": 60.6266527203843,
+   "z0": 366.0546410433017,
+   "z1": 395.6614413787611,
+   "windows": 0.45,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 10
+  },
+  {
+   "id": "f43",
+   "type": "box",
+   "name": "Neighbour",
+   "group": "Shot 2 city",
+   "x0": -43.46375646907836,
+   "x1": -35.46375646907836,
+   "y0": 0,
+   "y1": 79.69802876817994,
+   "z0": 369.9575928109698,
+   "z1": 393.1219542492181,
+   "windows": 0.45,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 233
+  },
+  {
+   "id": "f44",
+   "type": "box",
+   "name": "Neighbour",
+   "group": "Shot 2 city",
+   "x0": -35.62331429403275,
+   "x1": -27.623314294032753,
+   "y0": 0,
+   "y1": 68.44112871680409,
+   "z0": 350.40491056395695,
+   "z1": 415.5567440483719,
+   "windows": 0.45,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 243
+  },
+  {
+   "id": "f45",
+   "type": "box",
+   "name": "Neighbour",
+   "group": "Shot 2 city",
+   "x0": -25.493674218654633,
+   "x1": -17.493674218654633,
+   "y0": 0,
+   "y1": 84.81678972719237,
+   "z0": 343.20059230783954,
+   "z1": 418.184847808443,
+   "windows": 0.45,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 79
+  },
+  {
+   "id": "f46",
+   "type": "box",
+   "name": "Neighbour",
+   "group": "Shot 2 city",
+   "x0": -14.54629461467266,
+   "x1": -6.546294614672661,
+   "y0": 0,
+   "y1": 97.43055200553499,
+   "z0": 378.14207375748083,
+   "z1": 407.02279444551095,
+   "windows": 0.45,
+   "winStyle": "grid",
+   "edges": false,
+   "bright": false,
+   "seed": 198
+  },
+  {
+   "id": "f47",
+   "type": "billboard",
+   "name": "Street neon 1",
+   "group": "Shot 2 street",
+   "pos": [
+    -7,
+    3,
+    284
+   ],
+   "yaw": 160,
+   "w": 5,
+   "h": 1.8,
+   "tex": {
+    "w": 16,
+    "h": 6,
+    "frames": [
+     {
+      "bits": "VVUAAHQ3dDcAAFVV",
+      "dur": 0.9
+     },
+     {
+      "bits": "AAAAAAAAAAAAAAAA",
+      "dur": 0.08
+     }
+    ]
+   },
+   "scanline": false,
+   "glitch": false,
+   "border": true
+  },
+  {
+   "id": "f48",
+   "type": "billboard",
+   "name": "Street neon 2",
+   "group": "Shot 2 street",
+   "pos": [
+    4,
+    2,
+    288
+   ],
+   "yaw": 200,
+   "w": 3.5,
+   "h": 1.3,
+   "tex": {
+    "w": 16,
+    "h": 6,
+    "frames": [
+     {
+      "bits": "VVUAAHQ3dDcAAFVV",
+      "dur": 1
+     }
+    ]
+   },
+   "scanline": false,
+   "glitch": false,
+   "border": true
+  },
+  {
+   "id": "f49",
+   "type": "lights",
+   "name": "Street lamps",
+   "group": "Shot 2 street",
+   "shape": "line",
+   "a": [
+    -14,
+    1.6,
+    286
+   ],
+   "b": [
+    12,
+    1.6,
+    296
+   ],
+   "spacing": 3,
+   "mode": "steady",
+   "rate": 1
+  },
+  {
+   "id": "f50",
+   "type": "lights",
+   "name": "Pad lights",
+   "group": "Shot 2 police HQ",
+   "shape": "rect",
+   "a": [
+    -11,
+    96.1,
+    306
+   ],
+   "b": [
+    11,
+    96.1,
+    330
+   ],
+   "spacing": 2,
+   "mode": "chase",
+   "rate": 8
+  },
+  {
+   "id": "f51",
+   "type": "lights",
+   "name": "Mast beacon",
+   "group": "Shot 2 police HQ",
+   "shape": "line",
+   "a": [
+    8.8,
+    110.6,
+    327.3
+   ],
+   "b": [
+    9.8,
+    110.6,
+    327.3
+   ],
+   "spacing": 0.5,
+   "mode": "blink",
+   "rate": 1.5
+  },
+  {
+   "id": "spinnerB",
+   "type": "model",
+   "name": "Spinner (shot 2)",
+   "mesh": {
+    "verts": [
+     [
+      0,
+      0.2,
+      2.3
+     ],
+     [
+      -0.8,
+      0.5,
+      1.2
+     ],
+     [
+      0.8,
+      0.5,
+      1.2
+     ],
+     [
+      -0.8,
+      -0.2,
+      1
+     ],
+     [
+      0.8,
+      -0.2,
+      1
+     ],
+     [
+      -0.85,
+      0.7,
+      -1.9
+     ],
+     [
+      0.85,
+      0.7,
+      -1.9
+     ],
+     [
+      -0.85,
+      -0.2,
+      -1.9
+     ],
+     [
+      0.85,
+      -0.2,
+      -1.9
+     ],
+     [
+      -0.55,
+      1.15,
+      0.1
+     ],
+     [
+      0.55,
+      1.15,
+      0.1
+     ],
+     [
+      -0.5,
+      1.1,
+      -1
+     ],
+     [
+      0.5,
+      1.1,
+      -1
+     ]
+    ],
+    "faces": [
+     {
+      "v": [
+       0,
+       1,
+       2
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       0,
+       4,
+       3
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       0,
+       3,
+       1
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       0,
+       2,
+       4
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       1,
+       3,
+       7,
+       5
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       2,
+       6,
+       8,
+       4
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       5,
+       7,
+       8,
+       6
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       3,
+       4,
+       8,
+       7
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       1,
+       2,
+       10,
+       9
+      ],
+      "style": "dark"
+     },
+     {
+      "v": [
+       9,
+       10,
+       12,
+       11
+      ],
+      "style": "shaded"
+     },
+     {
+      "v": [
+       1,
+       9,
+       11,
+       5
+      ],
+      "style": "dark"
+     },
+     {
+      "v": [
+       2,
+       6,
+       12,
+       10
+      ],
+      "style": "dark"
+     },
+     {
+      "v": [
+       11,
+       12,
+       6,
+       5
+      ],
+      "style": "shaded"
+     }
+    ]
+   },
+   "scale": 3,
+   "autoOrient": false,
+   "bob": 0.15,
+   "headlights": true,
+   "thrusters": true,
+   "powerDown": true,
+   "lights": [
+    {
+     "p": [
+      -0.35,
+      1.3,
+      -0.45
+     ],
+     "mode": "alt",
+     "rate": 6,
+     "phase": 0
+    },
+    {
+     "p": [
+      0.35,
+      1.3,
+      -0.45
+     ],
+     "mode": "alt",
+     "rate": 6,
+     "phase": 1
+    }
+   ],
+   "keys": [
+    {
+     "t": 0,
+     "p": [
+      26,
+      400,
+      336
+     ],
+     "r": [
+      205,
+      0,
+      0
+     ],
+     "ease": "linear"
+    },
+    {
+     "t": 7.95,
+     "p": [
+      26,
+      400,
+      336
+     ],
+     "r": [
+      205,
+      0,
+      0
+     ],
+     "ease": "cut"
+    },
+    {
+     "t": 8,
+     "p": [
+      26,
+      150,
+      336
+     ],
+     "r": [
+      205,
+      0,
+      0
+     ],
+     "ease": "out"
+    },
+    {
+     "t": 13,
+     "p": [
+      15,
+      118,
+      326
+     ],
+     "r": [
+      200,
+      4,
+      -6
+     ],
+     "ease": "smooth"
+    },
+    {
+     "t": 17,
+     "p": [
+      5,
+      103,
+      320
+     ],
+     "r": [
+      192,
+      2,
+      3
+     ],
+     "ease": "out"
+    },
+    {
+     "t": 19.5,
+     "p": [
+      0,
+      96.35,
+      318
+     ],
+     "r": [
+      190,
+      0,
+      0
+     ],
+     "ease": "linear"
+    }
+   ]
+  }
+ ],
+ "camera": {
+  "keys": [
+   {
+    "t": 0,
+    "mode": "fixed",
+    "eye": [
+     -6,
+     30,
+     -6
+    ],
+    "look": [
+     -4,
+     42,
+     80
+    ],
+    "ease": "linear"
+   },
+   {
+    "t": 7.99,
+    "mode": "fixed",
+    "eye": [
+     -3,
+     31,
+     8
+    ],
+    "look": [
+     -3,
+     42,
+     84
+    ],
+    "ease": "cut"
+   },
+   {
+    "t": 8,
+    "mode": "fixed",
+    "eye": [
+     10,
+     3,
+     266
+    ],
+    "look": [
+     -4,
+     72,
+     322
+    ],
+    "ease": "linear"
+   },
+   {
+    "t": 21,
+    "mode": "fixed",
+    "eye": [
+     11,
+     3.4,
+     268
+    ],
+    "look": [
+     -5,
+     73,
+     322
+    ],
+    "ease": "linear"
+   }
+  ]
+ }
+}

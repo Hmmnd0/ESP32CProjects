@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Boy → OLED</title>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1d2026; --line: #2c3038; --text: #e6e8eb; --muted: #8a9099;
+    --accent: #8bd450; --warn: #e8b04a; --bad: #e5604f; --oled: #9fe3ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .02em; }
+  header .spacer { flex: 1; }
+  .status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--accent); } .dot.warn { background: var(--warn); }
+  button, select, label.file { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; font: inherit; cursor: pointer; }
+  button:hover, label.file:hover { border-color: #4a505c; }
+  button.primary { background: var(--accent); color: #10140c; border-color: var(--accent); font-weight: 600; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 20px; padding: 20px; max-width: 1200px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+  #gameWrap { position: relative; display: flex; justify-content: center; align-items: center; min-height: 300px; }
+  #game { width: 100%; max-width: 640px; aspect-ratio: 160 / 144; image-rendering: pixelated; background: #000; border-radius: 4px; cursor: crosshair; }
+  #drop { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; text-align: center; color: var(--muted); border: 2px dashed var(--line); border-radius: 8px; background: rgba(20,22,26,.92); }
+  #drop.hidden { display: none; }
+  body.dragging #drop { display: flex; border-color: var(--accent); color: var(--text); }
+  #oled { width: 100%; aspect-ratio: 72 / 40; image-rendering: pixelated; background: #000; border-radius: 4px; border: 6px solid #050505; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+  .row > span:first-child { width: 90px; color: var(--muted); flex-shrink: 0; }
+  .row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .row output { width: 38px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; flex: 1; }
+  .seg button { flex: 1; border: 0; border-radius: 0; padding: 6px 4px; background: transparent; color: var(--muted); }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: #2a2f37; color: var(--text); }
+  .stack { display: grid; gap: 16px; align-content: start; }
+  .keys { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px; color: var(--muted); }
+  kbd { background: #2a2f37; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 6px; font: 12px ui-monospace, monospace; color: var(--text); }
+  .hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+  .meta { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  input[type=file] { display: none; }
+  #unsupported { display: none; background: #3a1f1c; color: #ffd2cc; padding: 10px 20px; border-bottom: 1px solid #5a2a24; }
+</style>
+</head>
+<body>
+<div id="unsupported">This browser doesn't support Web Serial, so it can't talk to the board. Open this page in Chrome or Edge. You can still play here.</div>
+<header>
+  <h1>Game Boy → OLED</h1>
+  <span class="status"><span class="dot" id="romDot"></span><span id="romName">No ROM loaded</span></span>
+  <span class="spacer"></span>
+  <span class="status"><span class="dot" id="serialDot"></span><span id="serialText">Board not connected</span></span>
+  <label class="file">Load ROM<input type="file" id="romInput" accept=".gb,.gbc"></label>
+  <button class="primary" id="connectBtn">Connect board</button>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Game</h2>
+    <div id="gameWrap">
+      <canvas id="game" width="480" height="432"></canvas>
+      <div id="drop">
+        <strong>Drop a .gb file here</strong>
+        <span>or use “Load ROM”. The file stays on this computer.</span>
+      </div>
+    </div>
+    <p class="hint">In Crop view, click or drag on the game to move the green box. That's the part the OLED shows.</p>
+  </section>
+
+  <div class="stack">
+    <section class="card">
+      <h2>OLED preview (72×40)</h2>
+      <canvas id="oled" width="72" height="40"></canvas>
+      <div class="meta"><span id="emuFps">emu 0 fps</span><span id="sendFps">sent 0 fps</span><span id="oledHz">oled –</span></div>
+    </section>
+
+    <section class="card">
+      <h2>Picture</h2>
+      <div class="row"><span>View</span>
+        <div class="seg" id="modeSeg">
+          <button data-v="crop">Crop</button><button data-v="fit">Fit</button><button data-v="fill">Stretch</button>
+        </div>
+      </div>
+      <div class="row" id="zoomRow"><span>Zoom out</span>
+        <div class="seg" id="zoomSeg">
+          <button data-v="1" title="Every Game Boy pixel is one OLED pixel: sharpest">1×</button><button data-v="1.5">1.5×</button><button data-v="2">2×</button><button data-v="2.22">Max</button>
+        </div>
+      </div>
+      <div class="row"><span>Shades</span>
+        <div class="seg" id="shadesSeg">
+          <button data-v="4" title="Makes greys by flickering pixels fast">4 greys</button><button data-v="2">Black &amp; white</button>
+        </div>
+      </div>
+      <div class="row"><span>Outlines</span><input type="range" id="outline" min="0" max="1" step="0.05" title="When shrinking, keep thin dark lines dark instead of averaging them away"><output id="outlineOut"></output></div>
+      <div class="row"><span>Dither</span>
+        <select id="dither" style="flex:1">
+          <option value="atkinson">Atkinson (crisp)</option>
+          <option value="floyd">Floyd–Steinberg (smooth)</option>
+          <option value="bayer">Ordered (pattern)</option>
+          <option value="threshold">None (threshold)</option>
+        </select>
+      </div>
+      <div class="row"><span>Brightness</span><input type="range" id="brightness" min="-100" max="100" step="1"><output id="brightnessOut"></output></div>
+      <div class="row"><span>Contrast</span><input type="range" id="contrast" min="0.5" max="2.5" step="0.05"><output id="contrastOut"></output></div>
+      <div class="row"><span>Invert</span><input type="checkbox" id="invert"></div>
+      <div class="row" id="scatterRow"><span>Flicker</span><label style="display:flex;gap:8px;align-items:center;color:var(--muted)"><input type="checkbox" id="scatter"> Spread out (less pulsing)</label></div>
+      <div class="row" id="textRow" hidden><span>Pokémon text</span><label style="display:flex;gap:8px;align-items:center;color:var(--muted)"><input type="checkbox" id="pokeText"> Show dialog as readable text</label></div>
+    </section>
+
+    <section class="card">
+      <h2>Controls</h2>
+      <div class="keys">
+        <span><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd></span><span>D-pad</span>
+        <span><kbd>X</kbd></span><span>A</span>
+        <span><kbd>Z</kbd></span><span>B</span>
+        <span><kbd>Enter</kbd></span><span>Start</span>
+        <span><kbd>Shift</kbd></span><span>Select</span>
+        <span><kbd>Space</kbd></span><span>Hold to fast-forward</span>
+        <span><kbd>V</kbd></span><span>Switch view</span>
+        <span><kbd>P</kbd></span><span>Pause</span>
+      </div>
+      <p class="hint">USB and Bluetooth gamepads work too. Your in-game saves are stored in this browser automatically.</p>
+      <div class="row" style="margin-bottom:0">
+        <button id="exportSav" style="flex:1">Download .sav</button>
+        <label class="file" style="flex:1;text-align:center">Import .sav<input type="file" id="importSav" accept=".sav"></label>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

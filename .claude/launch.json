@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gameboy-web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "gameboy-stream/web/server.mjs"
+      ],
+      "port": 8080
+    },
+    {
+      "name": "oled3d",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "oled3d/editor/server.mjs"
+      ],
+      "port": 8090
+    },
+    {
+      "name": "video-stream",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "video-stream/web/server.mjs"
+      ],
+      "port": 8100
+    }
+  ]
+}

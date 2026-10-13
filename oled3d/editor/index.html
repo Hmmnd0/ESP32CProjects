@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OLED3D Editor</title>
+<script type="importmap">
+{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/" } }
+</script>
+<style>
+  :root {
+    --bg: #111317; --panel: #191c21; --panel2: #1f2329; --line: #2b3038; --text: #e6e8eb; --muted: #8a9099;
+    --accent: #8bd450; --blue: #4a90d9; --amber: #e8b04a; --red: #e5604f; --oled: #9fe3ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, -apple-system, sans-serif; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+  button, select, input, label.btn { font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; }
+  button, label.btn { padding: 5px 10px; cursor: pointer; white-space: nowrap; }
+  button:hover, label.btn:hover { border-color: #4a515c; }
+  button.on { background: #2d3a24; border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #10140c; border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: default; }
+  input, select { padding: 4px 6px; min-width: 0; }
+  input[type=number] { width: 100%; }
+  input[type=checkbox] { accent-color: var(--accent); }
+  input[type=file] { display: none; }
+  header { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 14px; margin: 0 8px 0 0; letter-spacing: .02em; }
+  header .sep { width: 1px; height: 22px; background: var(--line); margin: 0 2px; }
+  header .grow { flex: 1; }
+  .status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--accent); } .dot.warn { background: var(--amber); }
+  main { display: grid; grid-template-columns: 230px minmax(0, 1fr) 330px; min-height: 0; }
+  aside { background: var(--panel); border-right: 1px solid var(--line); overflow: auto; min-height: 0; }
+  aside.right { border-right: 0; border-left: 1px solid var(--line); }
+  .section { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .section h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  #view { position: relative; min-height: 0; overflow: hidden; }
+  #view .hud { position: absolute; left: 10px; top: 10px; display: flex; gap: 6px; z-index: 2; }
+  #view .help { position: absolute; left: 10px; bottom: 8px; color: var(--muted); font-size: 11px; z-index: 2; pointer-events: none; }
+  .tree { list-style: none; margin: 0; padding: 0; }
+  .tree li { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 4px; cursor: pointer; color: #c9cdd3; }
+  .tree li:hover { background: #22262d; }
+  .tree li.sel { background: #2d3a24; color: #fff; }
+  .tree li .icon { width: 14px; text-align: center; color: var(--muted); font-size: 11px; }
+  .tree li .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tree li .act { opacity: 0; color: var(--muted); padding: 0 3px; }
+  .tree li:hover .act { opacity: 1; }
+  .tree li.hidden .name { opacity: .45; text-decoration: line-through; }
+  .tree li.group { color: var(--muted); font-size: 12px; }
+  .tree .kids { padding-left: 14px; }
+  .addgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .addgrid button, .addgrid label.btn { text-align: left; font-size: 12px; }
+  #oled { width: 100%; aspect-ratio: 72/40; image-rendering: pixelated; background: #000; border: 6px solid #050505; border-radius: 4px; display: block; }
+  .perf { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .perfbar { height: 6px; background: #22262d; border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .perfbar div { height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+  .field { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 8px; margin: 6px 0; }
+  .field > span { color: var(--muted); font-size: 12px; }
+  .vec { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .vec6 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .hint { color: var(--muted); font-size: 12px; margin: 6px 0; }
+  .warn { color: var(--amber); font-size: 12px; margin: 6px 0; }
+  .sub { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; margin: 8px 0; }
+  .sub h3 { font-size: 12px; margin: 2px 0 4px; color: #c9cdd3; font-weight: 600; display: flex; justify-content: space-between; }
+  footer { border-top: 1px solid var(--line); background: var(--panel); }
+  footer .bar { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-bottom: 1px solid var(--line); }
+  footer .bar .time { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 110px; }
+  #timeline { display: block; width: 100%; height: 110px; }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 16px; width: min(560px, 92vw); }
+  dialog::backdrop { background: rgba(0,0,0,.55); }
+  dialog h2 { margin: 0 0 10px; font-size: 15px; }
+  dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  dialog canvas.preview { image-rendering: pixelated; background: #000; border: 1px solid var(--line); width: 100%; max-height: 260px; object-fit: contain; }
+  pre.log { background: #0b0d10; border: 1px solid var(--line); border-radius: 6px; padding: 8px; max-height: 320px; overflow: auto; font: 11px ui-monospace, monospace; white-space: pre-wrap; }
+  .toast { position: fixed; bottom: 150px; left: 50%; transform: translateX(-50%); background: #2a2f37; border: 1px solid var(--line); padding: 8px 14px; border-radius: 6px; z-index: 50; opacity: 0; transition: opacity .25s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  #unsupported { display: none; background: #3a1f1c; color: #ffd2cc; padding: 6px 12px; }
+</style>
+</head>
+<body>
+<div>
+  <div id="unsupported">This browser has no Web Serial, so it can't talk to the board. Use Chrome or Edge for live preview; everything else works.</div>
+  <header>
+    <h1>OLED3D</h1>
+    <select id="sceneSelect" title="Open a saved scene"></select>
+    <button id="newBtn" title="New empty scene">New</button>
+    <button id="saveBtn" title="Save (Cmd+S)">Save</button>
+    <div class="sep"></div>
+    <button id="undoBtn" title="Undo (Cmd+Z)">↶</button>
+    <button id="redoBtn" title="Redo (Cmd+Shift+Z)">↷</button>
+    <div class="sep"></div>
+    <button id="modeT" class="on" title="Move (W)">Move</button>
+    <button id="modeR" title="Rotate (E)">Rotate</button>
+    <button id="modeS" title="Resize (R)">Resize</button>
+    <button id="lookBtn" title="Look through the scene camera (C)">Camera view</button>
+    <div class="sep"></div>
+    <button id="quadBtn" title="Hammer-style 3D + Top / Front / Side views (V)">4 views</button>
+    <button id="blockBtn" title="Drag a rectangle in a 2D view to make a box (B)">Block tool</button>
+    <button id="camToolBtn" title="Plot the camera: in a 2D view, drag from camera to target (P)">Camera path</button>
+    <button id="pathToolBtn" title="Plot the selected model's flight: click points in a 2D view (M)">Model path</button>
+    <span class="status" title="How far the playhead steps after each plotted key">step <input id="camStep" type="number" value="2" step="0.5" min="0.1" style="width:52px"> s</span>
+    <span class="status" id="gridText" title="Grid size: [ smaller, ] bigger">grid 4</span>
+    <div class="grow"></div>
+    <span class="status"><span class="dot" id="serialDot"></span><span id="serialText">Board not connected</span></span>
+    <button id="connectBtn">Connect board</button>
+    <button id="liveBtn" title="Stream the preview to the OLED as you edit" disabled>Live on OLED</button>
+    <div class="sep"></div>
+    <button id="exportBtn" title="Write firmware/include/scene.h">Export</button>
+    <button id="flashBtn" class="primary" title="Export, build and upload to the board">Flash to board</button>
+  </header>
+</div>
+
+<main>
+  <aside>
+    <div class="section">
+      <h2>Add</h2>
+      <div class="addgrid">
+        <button id="addBox">▭ Building</button>
+        <button id="addStreet">▤ Street…</button>
+        <button id="addBillboard">▣ Billboard…</button>
+        <button id="addText">あ Text sign…</button>
+        <select id="addModel"><option value="">◆ Model…</option></select>
+        <label class="btn">⇪ Import .obj<input type="file" id="objInput" accept=".obj"></label>
+        <button id="addLights">✦ Light strip</button>
+      </div>
+    </div>
+    <div class="section">
+      <h2>Scene <span id="objCount"></span></h2>
+      <ul class="tree" id="outliner"></ul>
+    </div>
+  </aside>
+
+  <div id="view">
+    <div class="hud"></div>
+    <div class="help" id="viewHelp">Drag: orbit · Middle-drag: pan · Scroll: zoom · <b>Right-drag + WASD: fly</b> (Q/E down/up, Shift fast) · Z: fly toggle · V: 4 views · Click: select · F: focus</div>
+  </div>
+
+  <aside class="right">
+    <div class="section">
+      <h2>OLED preview <span id="previewNote"></span></h2>
+      <canvas id="oled" width="72" height="40"></canvas>
+      <div class="perfbar"><div id="perfFill"></div></div>
+      <div class="perf"><span id="perfNow">–</span><span id="perfWorst">–</span></div>
+      <div class="perf"><span id="perfStats"></span><span id="boardFps"></span></div>
+    </div>
+    <div class="section" id="props"></div>
+  </aside>
+</main>
+
+<footer>
+  <div class="bar">
+    <button id="playBtn" title="Play / pause (Space)">▶</button>
+    <button id="startBtn" title="Back to start">⏮</button>
+    <span class="time" id="timeText">0.00 / 0.00 s</span>
+    <button id="keyBtn" title="Add a key for the selected object (or the camera) at the playhead (K)">◆ Add key</button>
+    <span class="hint" style="margin:0">Double-click a row to add a key · drag keys to retime · shaded graph = board cost (green fast, red slow)</span>
+  </div>
+  <canvas id="timeline"></canvas>
+</footer>
+
+<dialog id="dlg"></dialog>
+<div class="toast" id="toast"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

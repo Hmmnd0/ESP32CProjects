@@ -1,0 +1,15 @@
+{
+  "name": "gameboy-stream",
+  "version": "1.0.0",
+  "description": "Play Game Boy in the browser and stream it to an ESP32-C3 OLED",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "wasmboy": "^0.7.1"
+  },
+  "private": true
+}
