@@ -2,17 +2,19 @@
 
 Play Game Boy games in Chrome and mirror them, shrunk to 72×40, onto the 0.42" OLED over USB.
 
-- `src/main.cpp` is the board firmware. It shows "open browser" until frames arrive.
+- `src/main.cpp` is the board firmware. It shows "USB SCREEN / waiting for PC" until frames arrive.
 - `web/` is the browser page: the emulator (WasmBoy), the downscaler and dithering, and the Web Serial sender.
 
 ## Run it
+
+First install PlatformIO, Node.js and Chrome or Edge. See [SETUP.md](../SETUP.md) for step-by-step instructions for macOS, Windows and Linux.
 
 1. Flash the board (only needed once, or after flashing something else):
    `pio run -t upload` (from this folder)
 2. Start the page:
    `cd web && npm start`
 3. Open http://localhost:8080 in **Chrome or Edge**. Safari and Firefox have no Web Serial.
-4. Drop a `.gb` file on the page, click **Connect board**, and pick the ESP32 (usbmodem…).
+4. Drop a `.gb` file on the page, click **Connect board**, and pick the ESP32 (`usbmodem…` on macOS, `COM…` on Windows, `ttyACM…` on Linux).
 
 The page remembers the last ROM and your settings. In-game saves are kept in the browser automatically; use **Download .sav** to back them up.
 

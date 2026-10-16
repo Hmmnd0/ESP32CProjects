@@ -19,6 +19,28 @@ const send = (res, code, body, type = 'application/json') => { res.writeHead(cod
 
 let flashing = false;
 
+// On Windows, tools like pio and ffmpeg are .exe/.cmd shims that need a shell to be found
+const WIN = process.platform === 'win32';
+
+// Find the ESP32-C3 on any OS: ask PlatformIO for the serial ports and pick the one with
+// Espressif's USB vendor ID (303A). macOS: /dev/cu.usbmodem…, Linux: /dev/ttyACM…, Windows: COM…
+function findBoard() {
+  return new Promise((resolve) => {
+    let out = '';
+    const p = spawn('pio', ['device', 'list', '--json-output'], { shell: WIN });
+    p.stdout.on('data', (d) => { out += d; });
+    p.on('error', () => resolve(null));
+    p.on('close', () => {
+      try {
+        const ports = JSON.parse(out);
+        const esp = ports.find((d) => /VID:PID=303A/i.test(d.hwid || ''));
+        const usb = ports.find((d) => /usbmodem|usbserial|ttyACM|ttyUSB/i.test(d.port || ''));
+        resolve((esp || usb)?.port || null);
+      } catch { resolve(null); }
+    });
+  });
+}
+
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   try {
@@ -46,12 +68,12 @@ http.createServer(async (req, res) => {
     if (url.pathname === '/api/flash' && req.method === 'POST') {
       if (flashing) return send(res, 409, { error: 'already flashing' });
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
-      // Find the board ourselves: left to itself, PlatformIO may pick the Mac's Bluetooth port
-      const ports = fs.readdirSync('/dev').filter((d) => /^cu\.(usbmodem|usbserial|wchusbserial)/.test(d));
-      if (!ports.length) return res.end('The board was not found on USB. Plug it in (and close anything else using it), then try again.\n[exit 1]\n');
+      // Find the board ourselves: left to itself, PlatformIO may pick e.g. the Mac's Bluetooth port
+      const board = await findBoard();
+      if (!board) return res.end('The board was not found on USB. Plug it in with a data USB cable (and close anything else using it), then try again.\n[exit 1]\n');
       flashing = true;
-      res.write(`Board found on /dev/${ports[0]}\n`);
-      const p = spawn('pio', ['run', '-t', 'upload', '--upload-port', '/dev/' + ports[0]], { cwd: firmwareDir, env: { ...process.env, PLATFORMIO_DISABLE_PROGRESSBAR: 'true' } });
+      res.write(`Board found on ${board}\n`);
+      const p = spawn('pio', ['run', '-t', 'upload', '--upload-port', board], { cwd: firmwareDir, shell: WIN, env: { ...process.env, PLATFORMIO_DISABLE_PROGRESSBAR: 'true' } });
       p.stdout.on('data', (d) => res.write(d));
       p.stderr.on('data', (d) => res.write(d));
       p.on('error', (e) => { res.write(`\n[could not run pio: ${e.message}]\n`); });

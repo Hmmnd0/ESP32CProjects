@@ -48,6 +48,12 @@
   .seg button + button { border-left: 1px solid var(--line); }
   .seg button.on { background: #2a2f37; color: var(--text); }
   .stack { display: grid; gap: 16px; align-content: start; }
+  .edbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .edbar .grow { flex: 1; }
+  .edbar .time { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 130px; }
+  #timeline { display: block; width: 100%; height: 92px; border-radius: 6px; touch-action: none; }
+  #clipProps { margin-top: 8px; }
+  #clipProps .row select, #clipProps .row input[type=number] { padding: 4px 6px; }
   .progress { height: 6px; background: #22262d; border-radius: 3px; overflow: hidden; margin-top: 10px; display: none; }
   .progress div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
   dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 16px; width: min(560px, 92vw); }
@@ -69,22 +75,40 @@
 </header>
 
 <main>
+  <div class="stack">
   <section class="card">
     <h2>Video</h2>
     <div class="sources">
-      <label class="btn">Open video file…<input type="file" id="fileInput" accept="video/*,.mkv,.avi,.wmv,.flv,.mov,.m4v,.ts,.mts,.m2ts,.3gp,.mpg,.mpeg,.ogv"></label>
+      <label class="btn">Open video files…<input type="file" id="fileInput" multiple accept="video/*,.mkv,.avi,.wmv,.flv,.mov,.m4v,.ts,.mts,.m2ts,.3gp,.mpg,.mpeg,.ogv"></label>
       <div class="yt"><input type="text" id="ytInput" placeholder="Paste a YouTube link"><button id="ytBtn">Load</button></div>
       <button id="captureBtn" title="Mirror another tab or window">Capture a tab or window…</button>
     </div>
     <div id="stage">
       <div id="drop">
-        <strong>Drop a video file here</strong>
+        <strong>Drop video files here</strong>
         <span>MP4, MOV, WebM play straight away. MKV, AVI, WMV and other formats are converted first.</span>
       </div>
     </div>
     <div class="progress" id="progress"><div></div></div>
     <p class="note" id="sourceNote">Sound plays here in the browser; the picture goes to the OLED in sync.</p>
   </section>
+
+  <section class="card">
+    <h2>Edit</h2>
+    <div class="edbar">
+      <button id="edRewind" title="Back to the beginning (Home)">⏮</button>
+      <button id="edPlay" title="Play / pause (Space)">▶</button>
+      <span class="time" id="edTime">0:00.00 / 0:00.00</span>
+      <button id="edSplit" title="Split the clip at the playhead (S)">✂ Split</button>
+      <button id="edDelete" title="Delete the selected clip (Del)">Delete clip</button>
+      <span class="grow"></span>
+      <button id="edClear" title="Remove every clip">Clear</button>
+    </div>
+    <canvas id="timeline"></canvas>
+    <p class="note">Drag clips to reorder · drag their edges to trim · click a ◆ between clips to set the transition · scroll to zoom · ← → step a frame</p>
+    <div id="clipProps"></div>
+  </section>
+  </div>
 
   <div class="stack">
     <section class="card">
@@ -95,11 +119,17 @@
 
     <section class="card">
       <h2>Picture</h2>
+      <p class="note" id="lookTarget" style="margin:0 0 6px"></p>
+      <div id="lookButtons" style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+        <button id="lookAll" title="Give every clip this look">Copy to all clips</button>
+        <button id="lookReset" title="Go back to the default look">Reset clip</button>
+        <button id="lookDefault" title="Make this look the default for clips you haven't changed">Make default</button>
+      </div>
       <div class="row"><span>Framing</span>
         <div class="seg" id="fitSeg"><button data-v="crop">Crop to fill</button><button data-v="fit">Fit</button><button data-v="stretch">Stretch</button></div>
       </div>
       <div class="row" id="panRow"><span>Keep</span><input type="range" id="pan" min="0" max="100" step="1" title="Which part of the picture to keep when cropping"><output id="panOut"></output></div>
-      <div class="row"><span>Shades</span>
+      <div class="row"><span title="Applies to the whole video">Shades (all)</span>
         <div class="seg" id="shadesSeg"><button data-v="2">Black &amp; white</button><button data-v="4">4 greys</button></div>
       </div>
       <div class="row"><span>Dither</span>

@@ -14,6 +14,8 @@ tools/      make-example.mjs rebuilds the spinner-landing example
 
 ## Run it
 
+First install PlatformIO, Node.js and Chrome or Edge. See [SETUP.md](../SETUP.md) for step-by-step instructions for macOS, Windows and Linux.
+
 ```
 cd editor && npm install && npm start
 ```
@@ -60,8 +62,8 @@ The first time, flash the player firmware once with **Flash to board**. After th
 | C | camera view |
 | K | add a key |
 | Del | delete the key or object |
-| Cmd+Z / Cmd+Shift+Z | undo / redo |
-| Cmd+S | save |
+| Cmd+Z / Cmd+Shift+Z (Ctrl on Windows/Linux) | undo / redo |
+| Cmd+S (Ctrl+S on Windows/Linux) | save |
 
 ## Limits (it's a tiny chip)
 
