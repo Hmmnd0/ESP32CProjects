@@ -148,16 +148,64 @@ void ckVal(int k, float *o) {
   o[0] = eye.x; o[1] = eye.y; o[2] = eye.z; o[3] = look.x; o[4] = look.y; o[5] = look.z;
 }
 
+// ---------- fixed point ----------
+// The ESP32-C3 has no FPU, so the per-frame hot paths (camera transform, projection,
+// clipping, filling, lines, window lights) use integers: positions in Q16.16
+// (1.0 = 65536) and screen coordinates in Q4 (1 pixel = 16), which the chip's
+// hardware multiply/divide handle directly. Animation, aiming the camera and the
+// billboard texture mapping still use float: they run only a few times per frame.
+typedef int32_t fx;
+struct V3i { fx x, y, z; };
+struct P2 { int32_t x, y; };   // screen position, 1/16 pixel units
+inline fx toFx(float v) { return (fx)lrintf(v * 65536.0f); }
+inline V3i toFx3(V3 v) { return {toFx(v.x), toFx(v.y), toFx(v.z)}; }
+inline int32_t ceilDiv16(int32_t v) { return -((-v) >> 4); }
+inline int32_t clampi(int32_t v, int32_t a, int32_t b) { return v < a ? a : (v > b ? b : v); }
+const fx NEAR_FX = (fx)(SC_NEAR * 65536.0f + 0.5f);
+const int32_t FOCAL4 = (int32_t)(SC_FOCAL * 16.0f + 0.5f);   // focal length in 1/16 pixels
+const int32_t COORD_LIMIT = 8000 * 16;                       // keep projected points within +-8000 px
+
+// Dither level 0..16 from a 0..1 density: Bayer value b is lit when b < level * 16,
+// which for whole-number b is the same as b < ceil(level * 16).
+inline int ditherLevel(float level) { return level <= 0 ? 0 : level >= 1 ? 16 : (int)ceilf(level * 16); }
+inline bool ditherI(int x, int y, int level16) { return BAYER[(y & 3) * 4 + (x & 3)] < level16; }
+
 // ---------- camera + drawing primitives ----------
-V3 camEye, camR, camU, camF;
+V3 camEye, camR, camU, camF;   // float copy, for the few float paths
+V3i camEyeI, camRI, camUI, camFI;
 void lookAt(V3 eye, V3 look) {
   camEye = eye;
   camF = norm(look - eye);
   camR = norm(V3{camF.z, 0, -camF.x});
   camU = cross(camF, camR);
+  camEyeI = toFx3(camEye); camRI = toFx3(camR); camUI = toFx3(camU); camFI = toFx3(camF);
 }
-inline V3 toCam(V3 p) { V3 d = p - camEye; return {dot(d, camR), dot(d, camU), dot(d, camF)}; }
-inline void project(V3 c, float &sx, float &sy) { sx = W / 2 + SC_FOCAL * c.x / c.z; sy = H / 2 - SC_FOCAL * c.y / c.z; }
+
+// World point (Q16) -> camera space (Q16): three dot products in 64-bit, shifted once
+inline V3i toCamI(V3i p) {
+  int64_t dx = p.x - camEyeI.x, dy = p.y - camEyeI.y, dz = p.z - camEyeI.z;
+  return {(fx)((dx * camRI.x + dy * camRI.y + dz * camRI.z) >> 16),
+          (fx)((dx * camUI.x + dy * camUI.y + dz * camUI.z) >> 16),
+          (fx)((dx * camFI.x + dy * camFI.y + dz * camFI.z) >> 16)};
+}
+// Camera space (Q16, z >= near) -> screen (Q4). Works at Q8 so it's one 32-bit divide per axis.
+inline P2 projectI(const V3i &c) {
+  int32_t zq = c.z >> 8; if (zq < 1) zq = 1;
+  int32_t xq = clampi(c.x >> 8, -3000000, 3000000), yq = clampi(c.y >> 8, -3000000, 3000000);
+  return {(W / 2) * 16 + (int32_t)((int64_t)FOCAL4 * xq / zq), (H / 2) * 16 - (int32_t)((int64_t)FOCAL4 * yq / zq)};
+}
+inline P2 floatToP2(float x, float y) { return {(int32_t)lrintf(clampf(x, -8000, 8000) * 16), (int32_t)lrintf(clampf(y, -8000, 8000) * 16)}; }
+
+// world point (float) -> camera space (Q16)
+inline V3i camI(V3 p) { return toCamI(toFx3(p)); }
+// world point -> pixel; false when it's behind the near plane
+inline bool screenI(V3 p, int &x, int &y) {
+  V3i c = camI(p);
+  if (c.z < NEAR_FX) return false;
+  P2 s = projectI(c);
+  x = s.x >> 4; y = s.y >> 4;
+  return true;
+}
 
 inline void px(int x, int y, bool on) {
   if ((unsigned)x >= W || (unsigned)y >= H) return;
@@ -166,58 +214,73 @@ inline void px(int x, int y, bool on) {
   u8g2.setDrawColor(1);
 }
 
-void line(float x0, float y0, float x1, float y1, float density = 1) {
-  float t0 = 0, t1 = 1, dx = x1 - x0, dy = y1 - y0;
-  bool inside = x0 >= 0 && x0 <= W - 1 && x1 >= 0 && x1 <= W - 1 && y0 >= 0 && y0 <= H - 1 && y1 >= 0 && y1 <= H - 1;
+// Line between two Q4 points, clipped to the screen (Liang-Barsky on integers)
+void lineI(P2 a, P2 b, int level16 = 16) {
+  const int32_t X1 = (W - 1) * 16, Y1 = (H - 1) * 16;
+  a.x = clampi(a.x, -COORD_LIMIT, COORD_LIMIT); a.y = clampi(a.y, -COORD_LIMIT, COORD_LIMIT);
+  b.x = clampi(b.x, -COORD_LIMIT, COORD_LIMIT); b.y = clampi(b.y, -COORD_LIMIT, COORD_LIMIT);
+  bool inside = a.x >= 0 && a.x <= X1 && b.x >= 0 && b.x <= X1 && a.y >= 0 && a.y <= Y1 && b.y >= 0 && b.y <= Y1;
   if (!inside) {
-    float p[4] = {-dx, dx, -dy, dy}, q[4] = {x0, W - 1 - x0, y0, H - 1 - y0};
+    // parameters t0/t1 as fractions num/den, compared with 64-bit cross-multiplication
+    int32_t dx = b.x - a.x, dy = b.y - a.y;
+    int64_t t0n = 0, t0d = 1, t1n = 1, t1d = 1;
+    int32_t p[4] = {-dx, dx, -dy, dy}, q[4] = {a.x, X1 - a.x, a.y, Y1 - a.y};
     for (int i = 0; i < 4; i++) {
       if (p[i] == 0) { if (q[i] < 0) return; continue; }
-      float r = q[i] / p[i];
-      if (p[i] < 0) { if (r > t1) return; if (r > t0) t0 = r; }
-      else { if (r < t0) return; if (r < t1) t1 = r; }
+      int64_t rn = q[i], rd = p[i];
+      if (rd < 0) { rn = -rn; rd = -rd; }   // r = rn/rd with rd > 0
+      if (p[i] < 0) { if (rn * t1d > t1n * rd) return; if (rn * t0d > t0n * rd) { t0n = rn; t0d = rd; } }
+      else { if (rn * t0d < t0n * rd) return; if (rn * t1d < t1n * rd) { t1n = rn; t1d = rd; } }
     }
+    P2 na = {a.x + (int32_t)(dx * t0n / t0d), a.y + (int32_t)(dy * t0n / t0d)};
+    P2 nb = {a.x + (int32_t)(dx * t1n / t1d), a.y + (int32_t)(dy * t1n / t1d)};
+    a = na; b = nb;
   }
-  int ax = (int)roundf(x0 + dx * t0), ay = (int)roundf(y0 + dy * t0);
-  int bx = (int)roundf(x0 + dx * t1), by = (int)roundf(y0 + dy * t1);
+  int ax = (a.x + 8) >> 4, ay = (a.y + 8) >> 4, bx = (b.x + 8) >> 4, by = (b.y + 8) >> 4;
   int sx = ax < bx ? 1 : -1, sy = ay < by ? 1 : -1, ex = abs(bx - ax), ey = -abs(by - ay), err = ex + ey;
   for (int guard = 0; guard < 400; guard++) {
-    if (density >= 1 || dither(ax, ay, density)) px(ax, ay, true);
+    if (level16 >= 16 || ditherI(ax, ay, level16)) px(ax, ay, true);
     if (ax == bx && ay == by) break;
     int e2 = 2 * err;
     if (e2 >= ey) { err += ey; ax += sx; }
     if (e2 <= ex) { err += ex; ay += sy; }
   }
 }
+void line(float x0, float y0, float x1, float y1, float density = 1) { lineI(floatToP2(x0, y0), floatToP2(x1, y1), ditherLevel(density)); }
 
 const int MAXV = 10;
-int clipProject(const V3 *in, int n, float *xs, float *ys) {
-  V3 out[MAXV]; int m = 0;
+// Clip a camera-space polygon at the near plane and project it (all integer)
+int clipProjectI(const V3i *in, int n, P2 *out) {
+  V3i v[MAXV]; int m = 0;
   for (int i = 0; i < n && m < MAXV - 1; i++) {
-    V3 a = in[i], b = in[(i + 1) % n];
-    bool ia = a.z >= SC_NEAR, ib = b.z >= SC_NEAR;
-    if (ia) out[m++] = a;
-    if (ia != ib) out[m++] = lerp3(a, b, (SC_NEAR - a.z) / (b.z - a.z));
+    const V3i &a = in[i], &b = in[(i + 1) % n];
+    bool ia = a.z >= NEAR_FX, ib = b.z >= NEAR_FX;
+    if (ia) v[m++] = a;
+    if (ia != ib) {
+      int64_t num = NEAR_FX - a.z, den = b.z - a.z;   // rare (only edges crossing the near plane), so a 64-bit divide is fine
+      v[m++] = {a.x + (fx)((b.x - a.x) * num / den), a.y + (fx)((b.y - a.y) * num / den), NEAR_FX};
+    }
   }
-  for (int i = 0; i < m; i++) project(out[i], xs[i], ys[i]);
+  for (int i = 0; i < m; i++) out[i] = projectI(v[i]);
   return m;
 }
 
+// Scanline fill of a Q4 polygon. level16 < 0: solid black; otherwise a dither level 0..16.
 int16_t spanL[H], spanR[H];
-void fillPoly(const float *xs, const float *ys, int n, float shade) {
+void fillPolyI(const P2 *p, int n, int level16) {
   int yTop = H, yBot = -1;
   for (int y = 0; y < H; y++) { spanL[y] = 32767; spanR[y] = -32768; }
   for (int i = 0; i < n; i++) {
-    float ax = clampf(xs[i], -8000, 8000), ay = clampf(ys[i], -8000, 8000);
-    float bx = clampf(xs[(i + 1) % n], -8000, 8000), by = clampf(ys[(i + 1) % n], -8000, 8000);
+    int32_t ax = clampi(p[i].x, -COORD_LIMIT, COORD_LIMIT), ay = clampi(p[i].y, -COORD_LIMIT, COORD_LIMIT);
+    int32_t bx = clampi(p[(i + 1) % n].x, -COORD_LIMIT, COORD_LIMIT), by = clampi(p[(i + 1) % n].y, -COORD_LIMIT, COORD_LIMIT);
     if (ay == by) continue;
-    if (ay > by) { float t = ax; ax = bx; bx = t; t = ay; ay = by; by = t; }
-    int r0 = max(0, (int)ceilf(ay - 0.5f)), r1 = min(H - 1, (int)ceilf(by - 0.5f) - 1);
+    if (ay > by) { int32_t t = ax; ax = bx; bx = t; t = ay; ay = by; by = t; }
+    int r0 = max(0, (int)ceilDiv16(ay - 8)), r1 = min(H - 1, (int)ceilDiv16(by - 8) - 1);
     if (r0 > r1) continue;
-    float slope = (bx - ax) / (by - ay);
-    int32_t x = (int32_t)((ax + (r0 + 0.5f - ay) * slope) * 65536.0f), dx = (int32_t)(slope * 65536.0f);
-    for (int y = r0; y <= r1; y++, x += dx) {
-      int xi = x >> 16;
+    int32_t slope = (int32_t)(((int64_t)(bx - ax) << 12) / (by - ay));         // x per row, Q12
+    int32_t x = (ax << 8) + (int32_t)(((int64_t)(r0 * 16 + 8 - ay) * slope) >> 4);   // Q12
+    for (int y = r0; y <= r1; y++, x += slope) {
+      int xi = x >> 12;
       if (xi < spanL[y]) spanL[y] = xi;
       if (xi > spanR[y]) spanR[y] = xi;
     }
@@ -226,12 +289,12 @@ void fillPoly(const float *xs, const float *ys, int n, float shade) {
   for (int y = yTop; y <= yBot; y++) {
     int a = max(0, (int)spanL[y] + 1), b = min(W - 1, (int)spanR[y]);
     if (a > b) continue;
-    if (shade < 0) { u8g2.setDrawColor(0); u8g2.drawHLine(a, y, b - a + 1); u8g2.setDrawColor(1); }
-    else for (int x = a; x <= b; x++) px(x, y, dither(x, y, shade));
+    if (level16 < 0) { u8g2.setDrawColor(0); u8g2.drawHLine(a, y, b - a + 1); u8g2.setDrawColor(1); }
+    else for (int x = a; x <= b; x++) px(x, y, ditherI(x, y, level16));
   }
 }
-void outlinePoly(const float *xs, const float *ys, int n, float density) {
-  for (int i = 0; i < n; i++) line(xs[i], ys[i], xs[(i + 1) % n], ys[(i + 1) % n], density);
+void outlinePolyI(const P2 *p, int n, int level16) {
+  for (int i = 0; i < n; i++) lineI(p[i], p[(i + 1) % n], level16);
 }
 
 uint32_t hash32(uint32_t n) { uint32_t h = n * 2654435761u; h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15; return h; }
@@ -246,57 +309,83 @@ bool windowLit(uint32_t id, int i, int j, float t, int density) {
 // ---------- scene drawing ----------
 // faces: -z, +x, +z, -x, top, bottom (bottom only shows when the camera is below the box)
 const uint8_t FACE_CORNERS[6][4] = {{0, 1, 3, 2}, {1, 5, 7, 3}, {5, 4, 6, 7}, {4, 0, 2, 6}, {2, 3, 7, 6}, {4, 5, 1, 0}};
-V3 boxCam[SC_NBOX > 0 ? SC_NBOX : 1][8];
-V3 mWorld[SC_NVERT > 0 ? SC_NVERT : 1], mCam[SC_NVERT > 0 ? SC_NVERT : 1];
+// Box geometry in Q16, converted once at startup: x0 x1 y0 y1 z0 z1, centre, radius
+struct BoxI { fx lo[3], hi[3]; V3i centre; fx radius; };
+BoxI boxI[SC_NBOX > 0 ? SC_NBOX : 1];
+V3i boxCam[SC_NBOX > 0 ? SC_NBOX : 1][8];
+V3 mWorld[SC_NVERT > 0 ? SC_NVERT : 1];
+V3i mCam[SC_NVERT > 0 ? SC_NVERT : 1];
 
-struct Entry { float depth; uint8_t type; uint16_t obj, face; };
+void prepareBoxes() {
+  for (int bi = 0; bi < SC_NBOX; bi++) {
+    const SBox &b = SC_BOXES[bi];
+    BoxI &B = boxI[bi];
+    B.lo[0] = toFx(b.x0); B.hi[0] = toFx(b.x1); B.lo[1] = toFx(b.y0); B.hi[1] = toFx(b.y1); B.lo[2] = toFx(b.z0); B.hi[2] = toFx(b.z1);
+    B.centre = toFx3({(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2});
+    B.radius = toFx(max(max(b.x1 - b.x0, b.z1 - b.z0), b.y1 - b.y0) * 0.8f);
+  }
+}
+
+struct Entry { fx depth; uint8_t type; uint16_t obj, face; };
 const int MAX_ENTRIES = 420;
 Entry entries[MAX_ENTRIES];
 int nEntries;
 
 void drawBoxFace(const Entry &E, float t) {
   const SBox &b = SC_BOXES[E.obj];
-  V3 cc[4];
+  V3i cc[4];
   for (int i = 0; i < 4; i++) cc[i] = boxCam[E.obj][FACE_CORNERS[E.face][i]];
-  float xs[MAXV], ys[MAXV];
-  int m = clipProject(cc, 4, xs, ys);
+  P2 pts[MAXV];
+  int m = clipProjectI(cc, 4, pts);
   if (m < 3) return;
-  float bx0 = 1e9, bx1 = -1e9, by0 = 1e9, by1 = -1e9;
-  for (int i = 0; i < m; i++) { bx0 = min(bx0, xs[i]); bx1 = max(bx1, xs[i]); by0 = min(by0, ys[i]); by1 = max(by1, ys[i]); }
-  if (bx1 < 0 || bx0 >= W || by1 < 0 || by0 >= H) return;
-  fillPoly(xs, ys, m, -1);
-  float fog = clampf(1.3f - E.depth / SC_FOGDIST, 0, 1);
+  int32_t bx0 = INT32_MAX, bx1 = INT32_MIN, by0 = INT32_MAX, by1 = INT32_MIN;
+  for (int i = 0; i < m; i++) { bx0 = min(bx0, pts[i].x); bx1 = max(bx1, pts[i].x); by0 = min(by0, pts[i].y); by1 = max(by1, pts[i].y); }
+  if (bx1 < 0 || bx0 >= W * 16 || by1 < 0 || by0 >= H * 16) return;
+  fillPolyI(pts, m, -1);
+  float fog = clampf(1.3f - (E.depth / 65536.0f) / SC_FOGDIST, 0, 1);
   if (b.flags & 2) fog = max(fog, 0.6f);
-  if ((b.flags & 1) && fog > 0.05f) outlinePoly(xs, ys, m, fog > 0.7f ? 1 : fog);
+  const int fog16 = ditherLevel(fog);
+  if ((b.flags & 1) && fog > 0.05f) outlinePolyI(pts, m, fog > 0.7f ? 16 : fog16);
 
-  bool allFront = cc[0].z >= SC_NEAR && cc[1].z >= SC_NEAR && cc[2].z >= SC_NEAR && cc[3].z >= SC_NEAR;
-  if (E.face < 4 && fog > 0 && allFront && b.style != 0 && b.win > 0) {
-    float X[4], Y[4];
-    for (int i = 0; i < 4; i++) project(cc[i], X[i], Y[i]);
+  bool allFront = cc[0].z >= NEAR_FX && cc[1].z >= NEAR_FX && cc[2].z >= NEAR_FX && cc[3].z >= NEAR_FX;
+  if (E.face < 4 && fog16 > 0 && allFront && b.style != 0 && b.win > 0) {
+    P2 P[4];
+    for (int i = 0; i < 4; i++) P[i] = projectI(cc[i]);
     float wdth = (E.face == 1 || E.face == 3) ? b.z1 - b.z0 : b.x1 - b.x0;
     int cols = max(1, (int)(wdth / SC_WINX)), rows = max(1, (int)((b.y1 - b.y0) / SC_WINY));
-    float spanX = max(fabsf(X[1] - X[0]), fabsf(X[2] - X[3])), spanY = max(fabsf(Y[3] - Y[0]), fabsf(Y[2] - Y[1]));
-    int stepI = max(1, (int)ceilf(cols / max(1.0f, spanX / 2))), stepJ = max(1, (int)ceilf(rows / max(1.0f, spanY / 2)));
+    int32_t spanX = max(abs(P[1].x - P[0].x), abs(P[2].x - P[3].x)), spanY = max(abs(P[3].y - P[0].y), abs(P[2].y - P[1].y));
+    // windows closer together than ~2 px are thinned out
+    int stepI = max<int32_t>(1, (cols * 32 + max<int32_t>(32, spanX) - 1) / max<int32_t>(32, spanX));
+    int stepJ = max<int32_t>(1, (rows * 32 + max<int32_t>(32, spanY) - 1) / max<int32_t>(32, spanY));
     // Strongly foreshortened faces (seen at a steep angle) need perspective-correct
-    // placement; otherwise blending the projected corners is cheaper and close enough.
-    float zMin = min(min(cc[0].z, cc[1].z), min(cc[2].z, cc[3].z)), zMax = max(max(cc[0].z, cc[1].z), max(cc[2].z, cc[3].z));
-    bool persp = zMax > zMin * 1.6f;
+    // placement; otherwise stepping across the projected corners is cheaper and close enough.
+    fx zMin = min(min(cc[0].z, cc[1].z), min(cc[2].z, cc[3].z)), zMax = max(max(cc[0].z, cc[1].z), max(cc[2].z, cc[3].z));
+    bool persp = (int64_t)zMax * 5 > (int64_t)zMin * 8;   // zMax > 1.6 zMin
+    const uint32_t id = b.seed + E.face * 7;
     for (int j = 1; j < rows; j += stepJ) {
       if (b.style == 2 && j % 3 != 1) continue;
-      float v = (float)j / rows;
-      float lx = X[0] + (X[3] - X[0]) * v, ly = Y[0] + (Y[3] - Y[0]) * v;
-      float rx = X[1] + (X[2] - X[1]) * v, ry = Y[1] + (Y[2] - Y[1]) * v;
-      if (!persp && ((ly < -1 && ry < -1) || (ly > H && ry > H))) continue;
-      for (int i = 1; i < cols; i += stepI) {
-        if (!windowLit(b.seed + E.face * 7, i, j, t, b.win)) continue;
-        float u = (float)i / cols;
-        int sx, sy;
-        if (persp) {
-          V3 q = cc[0] + (cc[1] - cc[0]) * u + (cc[3] - cc[0]) * v;
-          float fx, fy; project(q, fx, fy); sx = (int)fx; sy = (int)fy;
-        } else { sx = (int)(lx + (rx - lx) * u); sy = (int)(ly + (ry - ly) * u); }
-        if ((unsigned)sx >= W || (unsigned)sy >= H) continue;
-        if (fog >= 1 || dither(sx, sy, fog)) px(sx, sy, true);
+      if (persp) {
+        // left and right edge points of this row in camera space, then step across
+        V3i L = {cc[0].x + (cc[3].x - cc[0].x) / rows * j, cc[0].y + (cc[3].y - cc[0].y) / rows * j, cc[0].z + (cc[3].z - cc[0].z) / rows * j};
+        V3i R = {cc[1].x + (cc[2].x - cc[1].x) / rows * j, cc[1].y + (cc[2].y - cc[1].y) / rows * j, cc[1].z + (cc[2].z - cc[1].z) / rows * j};
+        V3i d = {(R.x - L.x) / cols, (R.y - L.y) / cols, (R.z - L.z) / cols};
+        for (int i = 1; i < cols; i += stepI) {
+          if (!windowLit(id, i, j, t, b.win)) continue;
+          P2 s = projectI({L.x + d.x * i, L.y + d.y * i, L.z + d.z * i});
+          int sx = s.x >> 4, sy = s.y >> 4;
+          if ((unsigned)sx >= W || (unsigned)sy >= H) continue;
+          if (fog16 >= 16 || ditherI(sx, sy, fog16)) px(sx, sy, true);
+        }
+      } else {
+        int32_t lx = P[0].x + (P[3].x - P[0].x) * j / rows, ly = P[0].y + (P[3].y - P[0].y) * j / rows;
+        int32_t rx = P[1].x + (P[2].x - P[1].x) * j / rows, ry = P[1].y + (P[2].y - P[1].y) * j / rows;
+        if ((ly < -16 && ry < -16) || (ly > H * 16 && ry > H * 16)) continue;
+        for (int i = 1; i < cols; i += stepI) {
+          if (!windowLit(id, i, j, t, b.win)) continue;
+          int sx = (lx + (rx - lx) * i / cols) >> 4, sy = (ly + (ry - ly) * i / cols) >> 4;
+          if ((unsigned)sx >= W || (unsigned)sy >= H) continue;
+          if (fog16 >= 16 || ditherI(sx, sy, fog16)) px(sx, sy, true);
+        }
       }
     }
   }
@@ -309,24 +398,51 @@ void billboardCorners(const SBillboard &bb, V3 *q) {
   q[2] = c + r * hw - V3{0, hh, 0}; q[3] = c - r * hw - V3{0, hh, 0};
 }
 
+// Billboards stay in float: the per-pixel texture lookup needs a divide either way,
+// and only a few hundred pixels are covered when one is on screen.
 void drawBillboard(int bi, float t) {
   const SBillboard &bb = SC_BBS[bi];
-  V3 w[4], q[4];
+  V3 w[4];
   billboardCorners(bb, w);
-  float X[4], Y[4];
-  for (int i = 0; i < 4; i++) { q[i] = toCam(w[i]); if (q[i].z < SC_NEAR) return; project(q[i], X[i], Y[i]); }
-  float dx1 = X[1] - X[2], dx2 = X[3] - X[2], dx3 = X[0] - X[1] + X[2] - X[3];
-  float dy1 = Y[1] - Y[2], dy2 = Y[3] - Y[2], dy3 = Y[0] - Y[1] + Y[2] - Y[3];
-  float den = dx1 * dy2 - dx2 * dy1;
-  if (fabsf(den) < 1e-4f) return;
-  float g = (dx3 * dy2 - dx2 * dy3) / den, h = (dx1 * dy3 - dx3 * dy1) / den;
-  float a = X[1] - X[0] + g * X[1], b = X[3] - X[0] + h * X[3], cc = X[0];
-  float d = Y[1] - Y[0] + g * Y[1], e = Y[3] - Y[0] + h * Y[3], f = Y[0];
-  float A = e - f * h, B = cc * h - b, C = b * f - cc * e;
-  float D = f * g - d, E = a - cc * g, F = cc * d - a * f;
-  float G = d * h - e * g, Hh = b * g - a * h, I = a * e - b * d;
-  int x0 = max(0, (int)floorf(min(min(X[0], X[1]), min(X[2], X[3])))), x1 = min(W - 1, (int)ceilf(max(max(X[0], X[1]), max(X[2], X[3]))));
-  int y0 = max(0, (int)floorf(min(min(Y[0], Y[1]), min(Y[2], Y[3])))), y1 = min(H - 1, (int)ceilf(max(max(Y[0], Y[1]), max(Y[2], Y[3]))));
+  P2 Q[4];
+  for (int i = 0; i < 4; i++) { V3i c = camI(w[i]); if (c.z < NEAR_FX) return; Q[i] = projectI(c); }
+  // Screen -> texture is a projective map. It's set up once per billboard in double (the
+  // editor gets the identical result), then each pixel is 32-bit integer adds and a divide.
+  double X[4], Y[4];
+  for (int i = 0; i < 4; i++) { X[i] = Q[i].x / 16.0; Y[i] = Q[i].y / 16.0; }
+  double dx1 = X[1] - X[2], dx2 = X[3] - X[2], dx3 = X[0] - X[1] + X[2] - X[3];
+  double dy1 = Y[1] - Y[2], dy2 = Y[3] - Y[2], dy3 = Y[0] - Y[1] + Y[2] - Y[3];
+  double den = dx1 * dy2 - dx2 * dy1;
+  if (fabs(den) < 1e-4) return;
+  double g = (dx3 * dy2 - dx2 * dy3) / den, h = (dx1 * dy3 - dx3 * dy1) / den;
+  double a = X[1] - X[0] + g * X[1], b = X[3] - X[0] + h * X[3], cc = X[0];
+  double d = Y[1] - Y[0] + g * Y[1], e = Y[3] - Y[0] + h * Y[3], f = Y[0];
+  double A = e - f * h, B = cc * h - b, C = b * f - cc * e;
+  double D = f * g - d, E = a - cc * g, F = cc * d - a * f;
+  double G = d * h - e * g, Hh = b * g - a * h, I = a * e - b * d;
+  int32_t qx0 = min(min(Q[0].x, Q[1].x), min(Q[2].x, Q[3].x)), qx1 = max(max(Q[0].x, Q[1].x), max(Q[2].x, Q[3].x));
+  int32_t qy0 = min(min(Q[0].y, Q[1].y), min(Q[2].y, Q[3].y)), qy1 = max(max(Q[0].y, Q[1].y), max(Q[2].y, Q[3].y));
+  int x0 = max<int32_t>(0, qx0 >> 4), x1 = min<int32_t>(W - 1, ceilDiv16(qx1));
+  int y0 = max<int32_t>(0, qy0 >> 4), y1 = min<int32_t>(H - 1, ceilDiv16(qy1));
+  if (x0 > x1 || y0 > y1) return;
+  // Scale so U, V and W stay under 2^23 across the box (they're linear, so its corners
+  // bound them), with W positive inside the billboard
+  double m = 0;
+  for (int k = 0; k < 4; k++) {
+    double px_ = ((k & 1) ? x1 : x0) + 0.5, py_ = ((k & 2) ? y1 : y0) + 0.5;
+    m = fmax(m, fabs(A * px_ + B * py_ + C)); m = fmax(m, fabs(D * px_ + E * py_ + F)); m = fmax(m, fabs(G * px_ + Hh * py_ + I));
+  }
+  if (!(m > 0)) return;
+  double sc = 1;
+  while (m * sc >= 8388608.0) sc *= 0.5;
+  while (m * sc < 4194304.0) sc *= 2;
+  double mx = (X[0] + X[1] + X[2] + X[3]) / 4, my = (Y[0] + Y[1] + Y[2] + Y[3]) / 4;
+  if (G * mx + Hh * my + I < 0) sc = -sc;
+  auto toI = [&](double v) { v = floor(v * sc + 0.5); return (int32_t)(v > 1e9 ? 1e9 : v < -1e9 ? -1e9 : v); };
+  const double fx0 = x0 + 0.5, fy0 = y0 + 0.5;
+  int32_t U0 = toI(A * fx0 + B * fy0 + C), V0 = toI(D * fx0 + E * fy0 + F), W0 = toI(G * fx0 + Hh * fy0 + I);
+  int32_t Ax = toI(A), Dx = toI(D), Gx = toI(G), By = toI(B), Ey = toI(E), Hy = toI(Hh);
+
   float total = 0;
   for (int i = 0; i < bb.nframes; i++) total += bb.dur[i];
   float ft = total > 0 ? fmodf(t, total) : 0;
@@ -337,18 +453,15 @@ void drawBillboard(int bi, float t) {
   bool glitch = (bb.flags & 2) && fmodf(t * 1.7f, 4.0f) < 0.12f;
   int scan = (bb.flags & 1) ? (int)(t * 20) % (bb.th + 10) : -100;
   for (int y = y0; y <= y1; y++) {
-    float fy = y + 0.5f, fx = x0 + 0.5f;
-    float U = A * fx + B * fy + C, V = D * fx + E * fy + F, Wd = G * fx + Hh * fy + I;
-    for (int x = x0; x <= x1; x++, U += A, V += D, Wd += G) {
-      if (fabsf(Wd) < 1e-6f) continue;
-      float inv = 1.0f / Wd, u = U * inv, v = V * inv;
-      if (u < 0 || u >= 1 || v < 0 || v >= 1) continue;
-      int ty = (int)(v * bb.th), tx = (int)(u * bb.tw) + (glitch && ((ty / 4) % 3) == 0 ? 3 : 0);
+    int32_t U = U0 + By * (y - y0), V = V0 + Ey * (y - y0), Wd = W0 + Hy * (y - y0);
+    for (int x = x0; x <= x1; x++, U += Ax, V += Dx, Wd += Gx) {
+      if (Wd <= 0 || U < 0 || U >= Wd || V < 0 || V >= Wd) continue;
+      int ty = V * bb.th / Wd, tx = U * bb.tw / Wd + (glitch && ((ty / 4) % 3) == 0 ? 3 : 0);
       bool on = tx < bb.tw && ((tex[ty * rowBytes + (tx >> 3)] >> (tx & 7)) & 1) && ty != scan && ty != scan - 1;
       px(x, y, on);
     }
   }
-  if (bb.flags & 4) for (int i = 0; i < 4; i++) line(X[i], Y[i], X[(i + 1) % 4], Y[(i + 1) % 4]);
+  if (bb.flags & 4) for (int i = 0; i < 4; i++) lineI(Q[i], Q[(i + 1) % 4]);
 }
 
 const V3 LIGHT = {SC_LIGHT_X, SC_LIGHT_Y, SC_LIGHT_Z};
@@ -369,15 +482,15 @@ void drawModelFace(const Entry &E) {
   int mi = E.obj;
   const uint8_t *F = SC_MFACES + (SC_MODELS[mi].fOff + E.face) * 6;
   uint16_t vo = SC_MODELS[mi].vOff;
-  V3 poly[4];
+  V3i poly[4];
   for (int k = 0; k < F[0]; k++) poly[k] = mCam[vo + F[1 + k]];
-  float xs[MAXV], ys[MAXV];
-  int m = clipProject(poly, F[0], xs, ys);
+  P2 pts[MAXV];
+  int m = clipProjectI(poly, F[0], pts);
   if (m < 3) return;
-  float shade = -1;
-  if (!F[5]) { V3 fc; V3 nrm = faceNormal(mi, E.face, fc); shade = 0.12f + 0.6f * max(0.0f, dot(nrm, LIGHT)); }
-  fillPoly(xs, ys, m, shade);
-  outlinePoly(xs, ys, m, 1);
+  int level16 = -1;
+  if (!F[5]) { V3 fc; V3 nrm = faceNormal(mi, E.face, fc); level16 = ditherLevel(0.12f + 0.6f * max(0.0f, dot(nrm, LIGHT))); }
+  fillPolyI(pts, m, level16);
+  outlinePolyI(pts, m, 16);
 }
 
 void drawStrip(const SStrip &s, float t) {
@@ -391,10 +504,8 @@ void drawStrip(const SStrip &s, float t) {
     if (s.mode == 3 && fmodf(t * s.rate, 1) >= 0.15f) show = false;
     k++;
     if (!show) return;
-    V3 c = toCam(p);
-    if (c.z < SC_NEAR) return;
-    float sx, sy; project(c, sx, sy);
-    px((int)sx, (int)sy, true);
+    int sx, sy;
+    if (screenI(p, sx, sy)) px(sx, sy, true);
   };
   auto along = [&](V3 a, V3 b) {
     float len = sqrtf(dot(b - a, b - a));
@@ -408,7 +519,8 @@ void drawStrip(const SStrip &s, float t) {
   } else { along({s.ax, s.ay, s.az}, {s.bx, s.by, s.bz}); point({s.bx, s.by, s.bz}); }
 }
 
-void renderScene(float t) {
+// Draw one frame into the buffer (renderScene also sends it to the screen)
+void drawScene(float t) {
   u8g2.clearBuffer();
   for (int i = 0; i < SC_NMODEL; i++) poses[i] = modelPose(i, t);
   float cv[6] = {0, 10, -30, 0, 10, 0};
@@ -421,26 +533,26 @@ void renderScene(float t) {
     for (int k = 0; k < m.nV; k++) {
       const float *v = SC_MVERTS + (m.vOff + k) * 3;
       mWorld[m.vOff + k] = modelToWorld(mi, poses[mi], {v[0], v[1], v[2]});
-      mCam[m.vOff + k] = toCam(mWorld[m.vOff + k]);
+      mCam[m.vOff + k] = toCamI(toFx3(mWorld[m.vOff + k]));
     }
   }
 
   nEntries = 0;
+  const fx FAR_FX = toFx(SC_FAR), K13 = toFx(1.3f), K08 = toFx(0.8f), TWO = 2 * 65536;
   for (int bi = 0; bi < SC_NBOX; bi++) {
-    const SBox &b = SC_BOXES[bi];
-    V3 cc = toCam({(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, (b.z0 + b.z1) / 2});
-    float radius = max(max(b.x1 - b.x0, b.z1 - b.z0), b.y1 - b.y0) * 0.8f;
-    if (cc.z + radius < SC_NEAR || cc.z - radius > SC_FAR) continue;
-    if (fabsf(cc.x) - radius > cc.z * 1.3f + 2) continue;
-    if (fabsf(cc.y) - radius > cc.z * 0.8f + 2) continue;
-    for (int k = 0; k < 8; k++) boxCam[bi][k] = toCam({(k & 1) ? b.x1 : b.x0, (k & 2) ? b.y1 : b.y0, (k & 4) ? b.z1 : b.z0});
-    const V3 &e = camEye;
-    bool vis[6] = {e.z < b.z0, e.x > b.x1, e.z > b.z1, e.x < b.x0, e.y > b.y1, e.y < b.y0};
+    const BoxI &B = boxI[bi];
+    V3i cc = toCamI(B.centre);
+    if (cc.z + B.radius < NEAR_FX || cc.z - B.radius > FAR_FX) continue;
+    if (abs(cc.x) - B.radius > (fx)(((int64_t)cc.z * K13) >> 16) + TWO) continue;
+    if (abs(cc.y) - B.radius > (fx)(((int64_t)cc.z * K08) >> 16) + TWO) continue;
+    for (int k = 0; k < 8; k++) boxCam[bi][k] = toCamI({(k & 1) ? B.hi[0] : B.lo[0], (k & 2) ? B.hi[1] : B.lo[1], (k & 4) ? B.hi[2] : B.lo[2]});
+    const V3i &e = camEyeI;
+    bool vis[6] = {e.z < B.lo[2], e.x > B.hi[0], e.z > B.hi[2], e.x < B.lo[0], e.y > B.hi[1], e.y < B.lo[1]};
     for (int f = 0; f < 6 && nEntries < MAX_ENTRIES; f++) {
       if (!vis[f]) continue;
-      float d = 0;
-      for (int i = 0; i < 4; i++) d += boxCam[bi][FACE_CORNERS[f][i]].z;
-      entries[nEntries++] = {d / 4, 0, (uint16_t)bi, (uint16_t)f};
+      fx d = 0;
+      for (int i = 0; i < 4; i++) d += boxCam[bi][FACE_CORNERS[f][i]].z >> 2;
+      entries[nEntries++] = {d, 0, (uint16_t)bi, (uint16_t)f};
     }
   }
   for (int i = 0; i < SC_NBB && nEntries < MAX_ENTRIES; i++) {
@@ -448,9 +560,9 @@ void renderScene(float t) {
     V3 n = {sinf(bb.yaw), 0, cosf(bb.yaw)};
     if (dot(n, camEye - V3{bb.x, bb.y, bb.z}) <= 0) continue;
     V3 w[4]; billboardCorners(bb, w);
-    float d = 0;
-    for (int k = 0; k < 4; k++) d += toCam(w[k]).z;
-    entries[nEntries++] = {d / 4 - 0.3f, 1, (uint16_t)i, 0};
+    fx d = 0;
+    for (int k = 0; k < 4; k++) d += camI(w[k]).z >> 2;
+    entries[nEntries++] = {d - toFx(0.3f), 1, (uint16_t)i, 0};
   }
   for (int mi = 0; mi < SC_NMODEL; mi++) {
     if (!poses[mi].valid) continue;
@@ -460,9 +572,9 @@ void renderScene(float t) {
       if (F[0] < 3) continue;
       V3 fc; V3 nrm = faceNormal(mi, fi, fc);
       if (dot(nrm, camEye - fc) <= 0) continue;
-      float d = 0;
+      int64_t d = 0;
       for (int k = 0; k < F[0]; k++) d += mCam[m.vOff + F[1 + k]].z;
-      entries[nEntries++] = {d / F[0], 2, (uint16_t)mi, (uint16_t)fi};
+      entries[nEntries++] = {(fx)(d / F[0]), 2, (uint16_t)mi, (uint16_t)fi};
     }
   }
   // Painter's algorithm: far to near
@@ -490,27 +602,22 @@ void renderScene(float t) {
       if (l.mode == 1 || l.mode == 2) on = ((int)floorf(t * l.rate + l.phase) & 1) == 1;
       else if (l.mode == 3) on = fmodf(t * l.rate + l.phase, 1) < 0.15f;
       if (!on) continue;
-      V3 c = toCam(modelToWorld(mi, P, {l.x, l.y, l.z}));
-      if (c.z < SC_NEAR) continue;
-      float sx, sy; project(c, sx, sy);
-      int ix = (int)sx, iy = (int)sy;
+      int ix, iy;
+      if (!screenI(modelToWorld(mi, P, {l.x, l.y, l.z}), ix, iy)) continue;
       px(ix, iy, true); px(ix + 1, iy, true); px(ix, iy - 1, true);
     }
     if (!P.powered) continue;
     if (m.flags & 2)
       for (int s = -1; s <= 1; s += 2) {
-        V3 a = toCam(modelToWorld(mi, P, {0.4f * s, 0.25f, m.zFront})), b = toCam(modelToWorld(mi, P, {1.6f * s, -1.2f, m.zFront + 10}));
-        if (a.z < SC_NEAR || b.z < SC_NEAR) continue;
-        float ax, ay, bx, by; project(a, ax, ay); project(b, bx, by);
-        line(ax, ay, bx, by, 0.3f);
+        V3i a = camI(modelToWorld(mi, P, {0.4f * s, 0.25f, m.zFront})), b = camI(modelToWorld(mi, P, {1.6f * s, -1.2f, m.zFront + 10}));
+        if (a.z < NEAR_FX || b.z < NEAR_FX) continue;
+        lineI(projectI(a), projectI(b), ditherLevel(0.3f));
       }
     if (m.flags & 4)
       for (int k = 0; k < 3; k++) {
         if (((int)floorf(t * 30) + k) % 3 == 0) continue;
-        V3 c = toCam(modelToWorld(mi, P, {(k - 1) * 0.6f, m.yMin - 0.15f, -0.4f - k * 0.3f}));
-        if (c.z < SC_NEAR) continue;
-        float sx, sy; project(c, sx, sy);
-        px((int)sx, (int)sy, true);
+        int sx, sy;
+        if (screenI(modelToWorld(mi, P, {(k - 1) * 0.6f, m.yMin - 0.15f, -0.4f - k * 0.3f}), sx, sy)) px(sx, sy, true);
       }
   }
 
@@ -531,7 +638,27 @@ void renderScene(float t) {
     for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) if (BAYER[(y & 3) * 4 + (x & 3)] < f * 16) u8g2.drawPixel(x, y);
     u8g2.setDrawColor(1);
   }
-  u8g2.sendBuffer();
+}
+void renderScene(float t) { drawScene(t); u8g2.sendBuffer(); }
+
+// "bench" over serial: time every 0.1 s of the loop, drawing and sending separately.
+// Prints "bench <t> <draw us> <send us>" per frame, then a summary line.
+void runBench() {
+  uint32_t drawSum = 0, drawMax = 0, sendSum = 0, n = 0;
+  float worstT = 0;
+  for (int i = 0; i * 0.1f < SC_DURATION; i++, n++) {
+    float t = i * 0.1f;
+    uint32_t a = micros();
+    drawScene(t);
+    uint32_t b = micros();
+    u8g2.sendBuffer();
+    uint32_t c = micros();
+    drawSum += b - a; sendSum += c - b;
+    if (b - a > drawMax) { drawMax = b - a; worstT = t; }
+    Serial.printf("bench %.1f %u %u\n", t, (unsigned)(b - a), (unsigned)(c - b));
+  }
+  Serial.printf("bench done frames=%u draw_avg_us=%u draw_max_us=%u (t=%.1f) send_avg_us=%u\n",
+                (unsigned)n, (unsigned)(drawSum / n), (unsigned)drawMax, worstT, (unsigned)(sendSum / n));
 }
 
 // ---------- live frames from the editor ----------
@@ -557,6 +684,17 @@ void readSerial() {
       continue;
     }
     int b = Serial.read();
+    // text commands (one per line) arrive between frames
+    static char cmd[16];
+    static int cmdLen = 0;
+    if (rxState == WAIT_A5 && b != 0xA5) {
+      if (b == '\n' || b == '\r') {
+        cmd[cmdLen] = 0;
+        if (!strcmp(cmd, "bench")) runBench();
+        cmdLen = 0;
+      } else if (b >= 32 && b < 127 && cmdLen < (int)sizeof(cmd) - 1) cmd[cmdLen++] = b;
+      continue;
+    }
     if (rxState == WAIT_A5) rxState = (b == 0xA5) ? WAIT_TYPE : WAIT_A5;
     else if (b == 0x5A) { rxState = READ_BODY; rxFill = 0; }
     else rxState = (b == 0xA5) ? WAIT_TYPE : WAIT_A5;
@@ -573,6 +711,7 @@ void setup() {
   u8g2.setBusClock(800000);
   u8g2.begin();
   u8g2.setContrast(255);
+  prepareBoxes();
   sceneStart = millis();
 }
 

@@ -67,7 +67,8 @@ The first time, flash the player firmware once with **Flash to board**. After th
 
 ## Limits (it's a tiny chip)
 
-No FPU, so everything is budgeted:
+No FPU, so the engine works in whole numbers: positions in 16.16 fixed point, screen
+coordinates in 1/16 pixels, and billboards mapped with integer steps. Everything is budgeted:
 
 - up to 420 visible faces per frame
 - 160 faces and 255 vertices per model
@@ -75,3 +76,20 @@ No FPU, so everything is budgeted:
 - 40 raindrops
 
 Keep scenes in the green on the cost graph.
+
+## Checking the engine
+
+The editor preview and the firmware are two copies of the same engine and should draw the same
+pixels. To check after changing either one (needs a C++ compiler: Xcode command line tools on
+macOS, `build-essential` on Linux, MinGW-w64 or MSYS2 on Windows):
+
+```
+node firmware/test/compare.mjs
+```
+
+It builds the firmware engine for your computer, renders every 0.1 s of each scene with both, and
+reports how many pixels differ (today: about 0.2 per frame).
+
+To time the real board, open its serial port (for example `pio device monitor` in `firmware/`)
+and type `bench`. It draws every 0.1 s of the loop and prints the drawing and screen-send time of
+each frame in microseconds, then a summary.
